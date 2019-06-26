@@ -13,7 +13,8 @@ define(['lib/react'], function(React) {
         		},
 
         		onRecordUpdate : function(subscription, event) {
-              console.log(event.getSubject(), event.getFields())
+        		  debugger;
+              console.log(event.getSubject(), JSON.parse(JSON.stringify(event.getFields())))
         		}
           }
       )

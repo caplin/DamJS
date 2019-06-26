@@ -154,10 +154,11 @@ define(['lib/react', 'DamJSMatcher', 'lib/meld'], function(React, DamJSMatcher, 
 
 						}
 						if (matcher.logIncoming) {
-							console.log("Incoming:", joinPoint.target.getSubject(), joinPoint.target.getFields());
+							debugger;
+							console.log("Incoming:", joinPoint.target.getSubject(), JSON.parse(JSON.stringify(joinPoint.target.getFields())));
 						}
 					}
-				}.bind(this))
+				}. bind(this))
 				this.previous.proceed = proceed;
 				if (proceed) {
 					joinPoint.proceed();
