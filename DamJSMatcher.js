@@ -141,9 +141,9 @@ define(['lib/react'], function(React) {
 				joinPointCollection.forEach(function(point){
 					point.proceed();
 				});
-				console.log("Forwarding :", joinPoint.target.getSubject(), joinPoint.target.getFields());
+				console.log("Forwarding :", joinPoint.target.getSubject(), JSON.parse(JSON.stringify(joinPoint.target.getFields())));
 			} else {
-				console.log("Warning: no messages when forwarding for ", joinPoint.target.getFields());
+				console.log("Warning: no messages when forwarding for ", JSON.parse(JSON.stringify(joinPoint.target.getFields())));
 			}
 			this.removeJoinPoint(joinPoint);
 		},
