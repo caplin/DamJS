@@ -154,7 +154,6 @@ define(['lib/react', 'DamJSMatcher', 'lib/meld'], function(React, DamJSMatcher, 
 
 						}
 						if (matcher.logIncoming) {
-							debugger;
 							console.log("Incoming:", joinPoint.target.getSubject(), JSON.parse(JSON.stringify(joinPoint.target.getFields())));
 						}
 					}
