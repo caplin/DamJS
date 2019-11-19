@@ -1,10 +1,8 @@
 define(['lib/react'], function(React) {
 	return React.createClass({
 		getInitialState: function() {
-			return {
-				style: {backgroundColor: "lightgrey"},
-				openOrFiltered: "Off"
-			}
+			this.setFiltered();
+			return this.getFilteredState()
 		},
 		componentWillReceiveProps: function(props) {
 			this.setFiltered();
@@ -14,16 +12,19 @@ define(['lib/react'], function(React) {
 			this.setFiltered()
 		},
 		setFiltered: function() {
+			this.setState(this.getFilteredState());
+		},
+		getFilteredState: function() {
 			if (this.props.isFiltered())  {
-				this.setState({
+				return {
 					style: {backgroundColor: "lightgreen"},
 					openOrFiltered: "On"
-				});
+				};
 			} else {
-				this.setState({
+				return {
 					style: {backgroundColor: "lightgrey"},
 					openOrFiltered: "Off"
-				});
+				};
 			}
 		},
 		render: function() {
