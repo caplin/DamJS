@@ -7,8 +7,8 @@ define(["lib/react"], function (React) {
           service
         );
         var b =
-          CTSL.getSLJS()._streamLinkCore._protocolHandler.connection
-            .connectionListeners[3];
+          caplin.streamlink._streamLinkCore._protocolHandler.connection
+            .connectionListeners[2];
         debugger;
         b.onServiceStatusChange(e);
       };
@@ -20,8 +20,8 @@ define(["lib/react"], function (React) {
           service
         );
         var b =
-          CTSL.getSLJS()._streamLinkCore._protocolHandler.connection
-            .connectionListeners[3];
+          caplin.streamlink._streamLinkCore._protocolHandler.connection
+            .connectionListeners[2];
         debugger;
         b.onServiceStatusChange(e);
       };
@@ -30,8 +30,8 @@ define(["lib/react"], function (React) {
     render: function () {
       var serviceElements = [];
       var services =
-        CTSL.getSLJS()._streamLinkCore._protocolHandler.connection
-          .connectionListeners[3]._services;
+        caplin.streamlink._streamLinkCore._protocolHandler.connection
+          .connectionListeners[2]._state.mServices;
       if (services) {
         for (var service in services) {
           serviceElements.push(

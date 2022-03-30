@@ -255,7 +255,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
         function (matcher) {
           if (matcher.matches(joinPoint)) {
             if (matcher.injectOutgoing) {
-              //this.handleInjectOutgoing(matcher, joinPoint);
+              this.handleInjectOutgoing(matcher, joinPoint);
             }
             if (matcher.filterOutgoing) {
               //matcher.addJoinPoint(joinPoint);
@@ -277,7 +277,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
         function (matcher) {
           if (matcher.matches(joinPoint)) {
             if (matcher.injectOutgoing) {
-              //this.handleInjectOutgoing(matcher, joinPoint);
+              // this.handleInjectOutgoing(matcher, joinPoint);
             }
             if (matcher.logOutgoing) {
               console.log("Outgoing:", joinPoint.args[0], joinPoint.args[1]);
@@ -290,12 +290,9 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
       }
     },
     setListeners: function () {
-      if (
-        typeof caplin !== "undefined" &&
-        typeof caplin.streamlink !== "undefined"
-      ) {
+      if (window.caplin.streamlink) {
         meld.around(
-          caplin.streamlink.impl.subscription.SubscriptionManager.prototype,
+          caplin.streamlink._streamLinkCore._subscriptionManager,
           "send",
           function (joinPoint) {
             var proceed = true;
@@ -313,6 +310,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
             }
           }.bind(this)
         );
+
         //				meld.around(
         //					caplin.streamlink.impl.subscription.SubscriptionManager.prototype, 'onUpdate', function(joinPoint) {
         //						if (typeof x == "undefined") {
@@ -326,45 +324,39 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
         //						}
         //						joinPoint.proceed();
         //					}.bind(this));
+
         meld.around(
-          caplin.streamlink.impl.StreamLinkCoreImpl.prototype,
+          caplin.streamlink,
           "publishToSubject",
           function (joinPoint) {
             this.handlePublish(joinPoint);
           }.bind(this)
         );
+
         meld.around(
-          caplin.streamlink.impl.event.RecordType1EventImpl.prototype,
-          "_publishSubscriptionResponse",
+          caplin.streamlink._streamLinkCore._subscriptionManager,
+          "onUpdate",
           function (joinPoint) {
-            // CTSL.getSLJS().addConnectionListener({
-            // 	onServiceStatusChange: function() {
-            // 		debugger;
-            // 	}
-            // });
-            //console.log(services);
-            x =
-              joinPoint.args[0]._subscriptionManager.subscriptions
-                .subscriptions;
-            this.handleUpdate(joinPoint);
+            var event = joinPoint.args[0];
+            var isRecordType1Event = event._getRttpCode().name === "6c";
+            var isPermissionEvent = event._getRttpCode().name === "6k";
+            if (isRecordType1Event || isPermissionEvent) {
+              meld.around(
+                event,
+                "_publishSubscriptionResponse",
+                function (joinPoint) {
+                  this.handleUpdate(joinPoint);
+                }.bind(this)
+              );
+            }
+            joinPoint.proceed();
           }.bind(this)
         );
+
         meld.around(
-          caplin.streamlink.impl.event.PermissionEventImpl.prototype,
-          "_publishSubscriptionResponse",
-          function (joinPoint) {
-            x =
-              joinPoint.args[0]._subscriptionManager.subscriptions
-                .subscriptions;
-            this.handleUpdate(joinPoint);
-          }.bind(this)
-        );
-        meld.around(
-          caplin.streamlink.StreamLink.prototype,
+          caplin.streamlink,
           "subscribe",
           function (joinPoint) {
-            this.streamlink = joinPoint.target;
-            window.damJSStreamLink = this.streamlink;
             return this.handleSubscribe(joinPoint);
           }.bind(this)
         );
