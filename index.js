@@ -47,6 +47,11 @@ var loader = function () {
 };
 
 var callBack = function () {
+  if (!(window.caplin && window.caplin.streamlink)) {
+    alert("Streamlink not found on window.caplin.streamlink!");
+    return;
+  }
+
   require.config({
     baseUrl: damJSDomain,
   });
