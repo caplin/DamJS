@@ -1,7 +1,20 @@
 define(["lib/react"], function (React) {
   return React.createClass({
     subscribe: function () {
-      caplin.streamlink.subscribe(this.state.subject, {
+      var streamlink;
+
+      // >= StreamLinkTS 7.1.12
+      if (window.caplin.streamlink.getVersion) {
+        streamlink = caplin.streamlink;
+        // <= StreamLinkJS 7.0.4
+      } else {
+        if (typeof damJSStreamLink === "undefined") {
+          alert("Make a real subscription first!");
+          return;
+        }
+        streamlink = window.damJSStreamLink;
+      }
+      streamlink.subscribe(this.state.subject, {
         onSubscriptionStatus: function (subscription, event) {
           console.log(
             subscription.getSubject() + " is now " + event.getStatus()

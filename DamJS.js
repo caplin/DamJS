@@ -290,7 +290,8 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
       }
     },
     setListeners: function () {
-      if (window.caplin.streamlink) {
+      // >= StreamLinkTS 7.1.12
+      if (window.caplin.streamlink.getVersion) {
         meld.around(
           caplin.streamlink._streamLinkCore._subscriptionManager,
           "send",
@@ -310,20 +311,6 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
             }
           }.bind(this)
         );
-
-        //				meld.around(
-        //					caplin.streamlink.impl.subscription.SubscriptionManager.prototype, 'onUpdate', function(joinPoint) {
-        //						if (typeof x == "undefined") {
-        //							if (joinPoint.args[0] instanceof caplin.streamlink.impl.event.RecordType1EventImpl) {
-        //								x = joinPoint;
-        //								var subs = x.target.subscriptions.subscriptions;
-        //								for (var key in subs) {
-        //									this.addNewMatcher(subs[key].messages[0].handler._subject);
-        //								}
-        //							}
-        //						}
-        //						joinPoint.proceed();
-        //					}.bind(this));
 
         meld.around(
           caplin.streamlink,
@@ -357,6 +344,82 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
           caplin.streamlink,
           "subscribe",
           function (joinPoint) {
+            return this.handleSubscribe(joinPoint);
+          }.bind(this)
+        );
+        // <= StreamLinkJS 7.0.4
+      } else {
+        meld.around(
+          caplin.streamlink.impl.subscription.SubscriptionManager.prototype,
+          "send",
+          function (joinPoint) {
+            var proceed = true;
+            this.matchers.forEach(
+              function (matcher) {
+                if (matcher.matches(joinPoint.args[1].subject)) {
+                  if (matcher.filterOutgoing) {
+                    proceed = false;
+                  }
+                }
+              }.bind(this)
+            );
+            if (proceed) {
+              return joinPoint.proceed();
+            }
+          }.bind(this)
+        );
+        //				meld.around(
+        //					caplin.streamlink.impl.subscription.SubscriptionManager.prototype, 'onUpdate', function(joinPoint) {
+        //						if (typeof x == "undefined") {
+        //							if (joinPoint.args[0] instanceof caplin.streamlink.impl.event.RecordType1EventImpl) {
+        //								x = joinPoint;
+        //								var subs = x.target.subscriptions.subscriptions;
+        //								for (var key in subs) {
+        //									this.addNewMatcher(subs[key].messages[0].handler._subject);
+        //								}
+        //							}
+        //						}
+        //						joinPoint.proceed();
+        //					}.bind(this));
+        meld.around(
+          caplin.streamlink.impl.StreamLinkCoreImpl.prototype,
+          "publishToSubject",
+          function (joinPoint) {
+            this.handlePublish(joinPoint);
+          }.bind(this)
+        );
+        meld.around(
+          caplin.streamlink.impl.event.RecordType1EventImpl.prototype,
+          "_publishSubscriptionResponse",
+          function (joinPoint) {
+            // CTSL.getSLJS().addConnectionListener({
+            // 	onServiceStatusChange: function() {
+            // 		debugger;
+            // 	}
+            // });
+            //console.log(services);
+            x =
+              joinPoint.args[0]._subscriptionManager.subscriptions
+                .subscriptions;
+            this.handleUpdate(joinPoint);
+          }.bind(this)
+        );
+        meld.around(
+          caplin.streamlink.impl.event.PermissionEventImpl.prototype,
+          "_publishSubscriptionResponse",
+          function (joinPoint) {
+            x =
+              joinPoint.args[0]._subscriptionManager.subscriptions
+                .subscriptions;
+            this.handleUpdate(joinPoint);
+          }.bind(this)
+        );
+        meld.around(
+          caplin.streamlink.StreamLink.prototype,
+          "subscribe",
+          function (joinPoint) {
+            this.streamlink = joinPoint.target;
+            window.damJSStreamLink = this.streamlink;
             return this.handleSubscribe(joinPoint);
           }.bind(this)
         );
