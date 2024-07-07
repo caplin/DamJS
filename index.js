@@ -3,17 +3,7 @@
     w = window;
     d = w.document;
 
-    var p = d.createElement("script");
-    p.src = "https://polyfill.io/v3/polyfill.js";
-
-    p.onload = loader;
-
-    p.onreadystatechange = function () {
-      if (this.readyState === "complete") {
-        loader();
-      }
-    };
-    d.head.appendChild(p);
+    loader();
   });
 })();
 
