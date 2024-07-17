@@ -148,6 +148,9 @@ function enableTrading() {
   alert("currently disabled");
 }
 
+var RECORD_TYPE_1_CODE = "6c"; //Be warned that the zero is actually a null character
+var RECORD_TYPE_1_IMAGE_CODE = "7O"; //Be warned that the zero is actually a null character
+
 define(["lib/react", "DamJSMatcher", "lib/meld"], function (
   React,
   DamJSMatcher,
@@ -330,8 +333,9 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
           "onUpdate",
           function (joinPoint) {
             var event = joinPoint.args[0];
-            var isRecordType1Event = event._getRttpCode().name === "6c";
-            var isPermissionEvent = event._getRttpCode().name === "6k";
+            let eventCode = event._getRttpCode().name
+            var isRecordType1Event = eventCode === RECORD_TYPE_1_CODE || eventCode === RECORD_TYPE_1_IMAGE_CODE
+            var isPermissionEvent = eventCode === "6k";
             if (isRecordType1Event || isPermissionEvent) {
               meld.around(
                 event,

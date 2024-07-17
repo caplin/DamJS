@@ -68,13 +68,15 @@ var callBack = function () {
 
     var damJS = new DamJS(module.exports);
     damJS.addNewMatcher("/");
+    damJS.addNewMatcher("/PRIVATE/TRADE/FX");
+    damJS.addNewMatcher("/FXSALES/EURUSD");
     damJS.addNewMatcher("/FX/EURUSD");
     damJS.addNewMatcher("/FX/GBPUSD");
     damJS.addNewMatcher("/FX/USDJPY");
+    damJS.addNewMatcher("/PRIVATE/SALES/TRADECONFIRMATION");
+    damJS.addNewMatcher("/PRIVATE/TRADE/MM");
     damJS.addNewMatcher("/PRIVATE");
     damJS.addNewMatcher("/PRIVATE/FX");
-    damJS.addNewMatcher("/PRIVATE/TRADE/FX");
-    damJS.addNewMatcher("/PRIVATE/TRADE/MM");
 
     var newElement = document.createElement("div");
     document.body.appendChild(newElement);
