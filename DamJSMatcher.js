@@ -1,7 +1,8 @@
 define(["lib/react"], function (React) {
   function DamJSMatcher(matchString) {
-    this.joinPointsCached = [];
-    this.joinPointToCollectionCache = {};
+    // Messages held by the filter, shown under "View". Each entry is
+    // { direction, subject, type, getFields(), forward() }.
+    this.heldMessages = [];
     this.matchString = matchString;
     this.reacts = [];
     this.filterIncoming = false;
@@ -21,15 +22,15 @@ define(["lib/react"], function (React) {
     },
     clearReact: function (listener) {
       var listenerIndex = this.reacts.indexOf(listener);
-      if (listenerIndex) {
-        this.reacts.slice(listenerIndex, 1);
+      if (listenerIndex !== -1) {
+        this.reacts.splice(listenerIndex, 1);
       }
     },
     updateReact: function () {
       this.reacts.forEach(
         function (react) {
           if (react._lifeCycleState !== "UNMOUNTED") {
-            react.setState({ matches: this.joinPointsCached });
+            react.setState({ matches: this.heldMessages });
             react.setState({
               incomingInjectionFields: this.incomingInjectionFields,
             });
@@ -140,46 +141,66 @@ define(["lib/react"], function (React) {
 
       return false;
     },
+    /**
+     * Holds an incoming update. The collection contains the join point for each
+     * listener the update is fanned out to; forwarding proceeds all of them.
+     */
     addJoinPoint: function (joinPointCollection) {
-      const joinPoint = joinPointCollection[0];
-      this.joinPointsCached.push(joinPoint);
-      const key = this.calculateJoinPointKey(joinPoint);
-      this.joinPointToCollectionCache[key] = joinPointCollection;
-      joinPoint.matcher = this;
+      var event = joinPointCollection[0].target;
+      this.addHeldMessage({
+        direction: "Incoming",
+        subject: event.getSubject(),
+        type: "",
+        getFields: function () {
+          return event._fields || event.getFields();
+        },
+        forward: function () {
+          joinPointCollection.forEach(function (point) {
+            point.proceed();
+          });
+        },
+      });
+    },
+    /** Holds an outgoing packet (request, contrib, ...); forward() sends it. */
+    addOutgoingPacket: function (packet, forward) {
+      var type = packet.getType && packet.getType();
+      this.addHeldMessage({
+        direction: "Outgoing",
+        subject: packet.getSubject ? packet.getSubject() : packet.subject,
+        type: (type && (type.name || (type.getCode && type.getCode()))) || "",
+        getFields: function () {
+          var fields = {};
+          (packet.fieldData || []).forEach(function (tuple) {
+            fields[tuple.getX()] = tuple.getY();
+          });
+          return fields;
+        },
+        forward: forward,
+      });
+    },
+    addHeldMessage: function (heldMessage) {
+      heldMessage.matcher = this;
+      this.heldMessages.push(heldMessage);
       this.updateReact();
     },
-    forwardJoinPoint: function (joinPoint) {
-      const key = this.calculateJoinPointKey(joinPoint);
-      const joinPointCollection = this.joinPointToCollectionCache[key];
-      if (joinPointCollection) {
-        joinPointCollection.forEach(function (point) {
-          point.proceed();
-        });
-        console.log(
-          "Forwarding :",
-          joinPoint.target.getSubject(),
-          JSON.parse(JSON.stringify(joinPoint.target.getFields()))
-        );
-      } else {
-        console.log(
-          "Warning: no messages when forwarding for ",
-          JSON.parse(JSON.stringify(joinPoint.target.getFields()))
-        );
+    forwardHeldMessage: function (heldMessage) {
+      if (this.heldMessages.indexOf(heldMessage) === -1) {
+        return;
       }
-      this.removeJoinPoint(joinPoint);
-    },
-    removeJoinPoint: function (joinPoint) {
-      var index = this.joinPointsCached.indexOf(joinPoint);
-      this.joinPointsCached.splice(index, 1);
-      const key = this.calculateJoinPointKey(joinPoint);
-      this.joinPointToCollectionCache[key] = null;
-      this.updateReact();
-    },
-    calculateJoinPointKey: function (joinPoint) {
-      return (
-        joinPoint.target._timeReceived.toString() +
-        joinPoint.target._rttpSequenceNumber
+      this.removeHeldMessage(heldMessage);
+      console.log(
+        "Forwarding :",
+        heldMessage.subject,
+        JSON.parse(JSON.stringify(heldMessage.getFields()))
       );
+      heldMessage.forward();
+    },
+    removeHeldMessage: function (heldMessage) {
+      var index = this.heldMessages.indexOf(heldMessage);
+      if (index !== -1) {
+        this.heldMessages.splice(index, 1);
+      }
+      this.updateReact();
     },
   };
 

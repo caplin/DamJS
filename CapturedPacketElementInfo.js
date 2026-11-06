@@ -2,8 +2,7 @@ define(['lib/react'], function(React) {
 	return React.createClass({
 		render: function() {
 			var style = {maxHeight: "1em", overflow: "hidden"}
-			var capturedJP = this.props.joinPoint;
-			var fields = capturedJP.target._fields;
+			var fields = this.props.heldMessage.getFields();
 
 			var fieldElements = [];
 			for (var key in fields) {

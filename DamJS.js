@@ -156,6 +156,14 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
   DamJSMatcher,
   meld
 ) {
+  function getMethodOwner(obj, methodName) {
+    var owner = obj;
+    while (owner && !Object.prototype.hasOwnProperty.call(owner, methodName)) {
+      owner = Object.getPrototypeOf(owner);
+    }
+    return owner || obj;
+  }
+
   function DamJS() {
     this.matchers = [];
     this.streamlink = window.originalStreamLink || window.caplin.streamlink;
@@ -211,14 +219,27 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
     },
     handleInjectIncoming: function (matcher, joinPoint) {
       matcher.incomingInjectionFields.forEach(function (injectionObj) {
-        joinPoint.target._fields[injectionObj.keyValue] =
-          injectionObj.fieldValue;
+        if (injectionObj.keyValue) {
+          joinPoint.target._fields[injectionObj.keyValue] =
+            injectionObj.fieldValue;
+        }
       });
     },
     handleInjectOutgoing: function (matcher, joinPoint) {
-      matcher.incomingInjectionFields.forEach(function (injectionObj) {
-        joinPoint.args[1][injectionObj.keyValue] = injectionObj.fieldValue;
+      // publishToSubject(subject, fieldData, ...) accepts a field map, an array
+      // of field maps, or null.
+      var fieldData = joinPoint.args[1];
+      var injected = Array.isArray(fieldData) ? {} : fieldData || {};
+      matcher.outgoingInjectionFields.forEach(function (injectionObj) {
+        if (injectionObj.keyValue) {
+          injected[injectionObj.keyValue] = injectionObj.fieldValue;
+        }
       });
+      if (Array.isArray(fieldData)) {
+        fieldData.push(injected);
+      } else {
+        joinPoint.args[1] = injected;
+      }
     },
     handleUpdate: function (joinPoint) {
       var proceed = true;
@@ -255,26 +276,54 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
       }
     },
     handlePublish: function (joinPoint) {
-      var proceed = true;
       this.matchers.forEach(
         function (matcher) {
           if (matcher.matches(joinPoint)) {
             if (matcher.injectOutgoing) {
               this.handleInjectOutgoing(matcher, joinPoint);
             }
-            if (matcher.filterOutgoing) {
-              //matcher.addJoinPoint(joinPoint);
-              proceed = false;
-            }
+            // Filtering is done in handleSend, where the packet is held
+            // (after injection) until it's forwarded from the View list.
             if (matcher.logOutgoing) {
               console.log("Outgoing:", joinPoint.args[0], joinPoint.args[1]);
             }
           }
         }.bind(this)
       );
-      if (proceed) {
-        joinPoint.proceed();
+      return joinPoint.proceed();
+    },
+    /**
+     * Wraps SubscriptionManager.send(handler, packet): every outgoing packet
+     * (subscription requests, publishes, ...) goes through here. Packets whose
+     * subject matches a matcher with the outgoing filter on are held on that
+     * matcher; forwarding them from the View list sends them unchanged.
+     */
+    handleSend: function (joinPoint) {
+      if (this.forwardingOutgoing) {
+        return joinPoint.proceed();
       }
+      var packet = joinPoint.args[1];
+      var subject = packet && (packet.getSubject ? packet.getSubject() : packet.subject);
+      var holdingMatcher = null;
+      this.matchers.forEach(function (matcher) {
+        if (!holdingMatcher && matcher.filterOutgoing && subject && matcher.matches(subject)) {
+          holdingMatcher = matcher;
+        }
+      });
+      if (!holdingMatcher) {
+        return joinPoint.proceed();
+      }
+      holdingMatcher.addOutgoingPacket(
+        packet,
+        function () {
+          this.forwardingOutgoing = true;
+          try {
+            joinPoint.proceed();
+          } finally {
+            this.forwardingOutgoing = false;
+          }
+        }.bind(this)
+      );
     },
     handleSubscribe: function (joinPoint) {
       var proceed = true;
@@ -304,27 +353,21 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
           this.getStreamLink()._streamLinkCore._subscriptionManager,
           "send",
           function (joinPoint) {
-            var proceed = true;
-            this.matchers.forEach(
-              function (matcher) {
-                if (matcher.matches(joinPoint.args[1].subject)) {
-                  if (matcher.filterOutgoing) {
-                    proceed = false;
-                  }
-                }
-              }.bind(this)
-            );
-            if (proceed) {
-              return joinPoint.proceed();
-            }
+            return this.handleSend(joinPoint);
           }.bind(this)
         );
 
+        // Advise the object in the prototype chain that actually owns the method
+        // (normally StreamLink.prototype), not the instance. When StreamLink dev
+        // tools are enabled, window.caplin.streamlink is a Proxy whose method
+        // wrappers look up target[method] on every call; advising the instance
+        // writes the advice onto the target, so meld's proceed() calls back into
+        // the advice and recurses until the stack overflows.
         meld.around(
-          this.getStreamLink(),
+          getMethodOwner(this.getStreamLink(), "publishToSubject"),
           "publishToSubject",
           function (joinPoint) {
-            this.handlePublish(joinPoint);
+            return this.handlePublish(joinPoint);
           }.bind(this)
         );
 
@@ -350,7 +393,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
         );
 
         meld.around(
-          this.getStreamLink(),
+          getMethodOwner(this.getStreamLink(), "subscribe"),
           "subscribe",
           function (joinPoint) {
             return this.handleSubscribe(joinPoint);
@@ -362,19 +405,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
           this.getStreamLink().impl.subscription.SubscriptionManager.prototype,
           "send",
           function (joinPoint) {
-            var proceed = true;
-            this.matchers.forEach(
-              function (matcher) {
-                if (matcher.matches(joinPoint.args[1].subject)) {
-                  if (matcher.filterOutgoing) {
-                    proceed = false;
-                  }
-                }
-              }.bind(this)
-            );
-            if (proceed) {
-              return joinPoint.proceed();
-            }
+            return this.handleSend(joinPoint);
           }.bind(this)
         );
         //				meld.around(
@@ -394,7 +425,7 @@ define(["lib/react", "DamJSMatcher", "lib/meld"], function (
           this.getStreamLink().impl.StreamLinkCoreImpl.prototype,
           "publishToSubject",
           function (joinPoint) {
-            this.handlePublish(joinPoint);
+            return this.handlePublish(joinPoint);
           }.bind(this)
         );
         meld.around(

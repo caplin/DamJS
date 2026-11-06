@@ -1,3 +1,5 @@
 .idea
 node_modules
 meh
+test-results
+playwright-report

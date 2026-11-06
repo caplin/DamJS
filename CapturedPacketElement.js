@@ -14,20 +14,21 @@ define(['lib/react', 'CapturedPacketElementInfo'], function(React, CapturedPacke
 				});
 			} else {
 				this.setState({
-					infoElement: CapturedPacketElementInfo({joinPoint: this.props.joinPoint}), 
+					infoElement: CapturedPacketElementInfo({heldMessage: this.props.heldMessage}), 
 					infoShown: true
 				});
 			}
 		},
 		forwardJoinPoint: function() {
-			this.props.joinPoint.matcher.forwardJoinPoint(this.props.joinPoint);
+			this.props.heldMessage.matcher.forwardHeldMessage(this.props.heldMessage);
 		},
 		removeJoinPoint: function() {
-			this.props.joinPoint.matcher.removeJoinPoint(this.props.joinPoint);
+			this.props.heldMessage.matcher.removeHeldMessage(this.props.heldMessage);
 		},
 		render: function() {
-			var capturedJP = this.props.joinPoint;
-			var subjectElement = React.DOM.span(null, capturedJP.target.getSubject())
+			var heldMessage = this.props.heldMessage;
+			var label = heldMessage.subject + (heldMessage.direction === "Outgoing" ? " (" + (heldMessage.type || "outgoing") + ")" : "");
+			var subjectElement = React.DOM.span(null, label)
 			return React.DOM.div(null, subjectElement, 
 				React.DOM.button({onClick: this.forwardJoinPoint}, "Forward"), 
 				React.DOM.button({onClick: this.removeJoinPoint}, "Remove"), 
